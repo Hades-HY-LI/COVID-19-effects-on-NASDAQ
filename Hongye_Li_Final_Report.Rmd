@@ -1,0 +1,181 @@
+---
+title: "Study of 1st Grade Class Types Long-term Impacts on Math Scores"
+author: "Hongye Li, 918964869"
+date: "-------"
+output:
+  html_document:
+    df_print: paged
+    number_sections: yes
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.pos = 'H')
+```
+
+***
+
+```{r}
+library(ggplot2)
+library(zoo)
+library(gplots)
+
+# Data preparation
+whole.data <- read.csv('WHO-COVID-19-global-data.csv', header = T)
+US.data <- whole.data[whole.data$Country=='United States of America',]
+
+nasdaq.data <- read.csv('Data-index.csv', header = F)[,1:2]
+VIX.data <- read.csv('Data-volatility.csv', header = F)
+gold.data <- read.csv('Data-gold.csv', header = F)
+brentoil.data <- read.csv('Data-brent.csv', header = F)
+
+
+time.ind.covid <- US.data$Date_reported %in% nasdaq.data$V1
+
+US.new <- US.data[time.ind.covid,]
+
+time.ind.market <- nasdaq.data$V1 %in% US.new$Date_reported
+
+obs.length <- nrow(US.new)
+
+cases.change <- US.new$New_cases[2:obs.length]-US.new$New_cases[1:obs.length-1]
+
+cases.change[cases.change>0] <- 1
+
+cases.change[cases.change<=0] <- 0
+
+proj.data <- data.frame(date = as.Date(US.new$Date_reported)[-1],
+                        index.p = as.numeric(nasdaq.data$V2[time.ind.market])[-1],
+                        cases = US.new$New_cases[-1],
+                        cases.chg = as.factor(cases.change),
+                        VIX = as.numeric(VIX.data$V2[time.ind.market])[-1],
+                        gold = as.numeric(gold.data$V2[time.ind.market])[-1],
+                        brentoil = as.numeric(brentoil.data$V2[time.ind.market])[-1])
+
+proj.data <- na.locf(proj.data, fromLast = T)
+
+
+# Data visualization
+# Detect 
+ggplot(mapping = aes(x = date), data = proj.data) +
+  geom_point(aes(y = scale(cumsum(cases))), col = 'blue') +
+  geom_line(aes(y = scale(index.p)), col = 'steelblue', linetype = 'dashed') +
+  labs(x = 'Date',
+       y = 'Value'
+    ,color = 'Legend') +
+  scale_color_manual(values = colors)
+
+ggplot(aes(x = date), data = proj.data) +
+  geom_point(aes(y = index.p, col = cases.chg))
+
+plotmeans(index.p~cases.chg, data = proj.data)
+anova.fit <- aov(index.p~cases.chg, data = proj.data)
+plot(TukeyHSD(anova.fit, conf.level = 1-0.05), las=1 , col="brown")
+
+plotmeans(index.p~cases.chg, data = proj.data[1:485,])
+anova.fit.cut <- aov(index.p~cases.chg, data = proj.data[1:485,])
+plot(TukeyHSD(anova.fit.cut, conf.level = 1-0.05), las=1 , col="brown")
+
+# Model construction
+# Fit an ANOVA model with cases changes variable
+anova.fit1.p <- aov(index.p~cases.chg, data = proj.data)
+summary(anova.fit1.p)
+
+# Fit an ANOVA model with cases changes variable and other explanatory variables of index prices
+anova.fit3.p <- aov(index.p~cases.chg+VIX+gold+brentoil, data = proj.data)
+summary(anova.fit3.p)
+
+
+
+
+acf(proj.data$index.p)
+pacf(proj.data$index.p)
+AR <- arima(proj.data$index.p, order = c(1,0,0))
+ts.plot(proj.data$index.p)
+AR_fit <- proj.data$index.p - residuals(AR)
+points(AR_fit, type = "l", col = 2, lty = 2)
+
+
+plotmeans(AR_fit~cases.chg, data = proj.data)
+anova.fit.time <- aov(AR_fit~cases.chg, data = proj.data)
+plot(TukeyHSD(anova.fit.time, conf.level = 1-0.05), las=1 , col="brown")
+
+```
+
+
+# Abstract 
+
+<span style='color:black'> 
+
+
+
+</span>
+
+
+
+# Introduction
+
+<span style='color:black'> 
+
+</span>
+
+ 
+# Background 
+
+<span style='color:black'> 
+
+Project STAR was an experiment in which 11,600 students in their first four years of school (from kindergarten to 3rd grade) were randomly assigned to a small class (13-17 students), regular-size class (22-25 students), or regular-size class with a teacher aide within 79 Tennessee public schools (Krueger, A. B., & Whitmore, D. M., 2001). In this paper, we use the data from Harvard dataverse. It contains 11601 observations and 379 variables, including variables such as students ethnicity, students gender, students birthday, etc. Since we are interested in investigating the relation between school indicator, class types, and math scaled scores in 1st grade, we choose STAR.g1tmathss as the outcome variable, and STAR.g1classtype, STAR.g1schid as the indexes of cell mean variables.
+
+</span>
+
+
+# Descriptive analysis 
+
+<span style='color:black'> 
+
+
+</span>
+
+# Inferential analysis 
+
+
+<span style="color:black">
+
+</span> 
+
+# Sensitivity analysis 
+
+<span style='color:black'> 
+
+</span>
+
+
+# Discussion 
+
+<span style='color:black'> In this paper, we investigate the relation between math scaled scores ,class types and school ID by two-way ANOVA model. We found that both class types and school ID have association with math scaled scores. By conducting several tests, we conclude that there is association between class types and math scaled scores in the 1st grade, and type 1 class (i.e. small size class) has the highest math scaled scores among all types of classes. It suggests that we can set more small size classes for long-term educational outcomes. There is also another suggestion that if we do not have the resource for small size class, regular class with teacher aide is the following selection for a better long-term outcomes.
+
+Since we focus on the study of class types as the index in this paper, we can include more variables and their interaction terms to check if there are some other associations exist. We haven't taken much care to the outliers in this paper, which may lead to big impact to the precision of the model and should be considered.
+</span>
+
+# Acknowledgement {-}
+
+<span style='color:black'>
+
+</span>
+
+# Reference {-}
+
+Krueger, A. B., & Whitmore, D. M. (2001). The effect of attending a small class in the early grades on college‐test taking and middle school test results: Evidence from Project STAR. The Economic Journal, 111(468), 1-28.
+
+Shizhe Chen. (2022). 4.2.7 Example: Hay Fever data. Chapter 4 ANOVA II, Notes, StatDataScience. 
+
+
+# Session info {-}
+
+```{r}
+sessionInfo()
+```
+
+# Code Appendix {-}
+
+
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE,tidy=F}
+```
