@@ -1,7 +1,7 @@
 ---
-title: "Study of 1st Grade Class Types Long-term Impacts on Math Scores"
+title: "COVID-19 effects on NASDAQ"
 author: "Hongye Li, 918964869"
-date: "-------"
+date: "Mar 4, 2022"
 output:
   html_document:
     df_print: paged
@@ -13,92 +13,7 @@ knitr::opts_chunk$set(fig.pos = 'H')
 
 ***
 
-```{r}
-library(ggplot2)
-library(zoo)
-library(gplots)
 
-# Data preparation
-whole.data <- read.csv('WHO-COVID-19-global-data.csv', header = T)
-US.data <- whole.data[whole.data$Country=='United States of America',]
-
-nasdaq.data <- read.csv('Data-index.csv', header = F)[,1:2]
-VIX.data <- read.csv('Data-volatility.csv', header = F)
-gold.data <- read.csv('Data-gold.csv', header = F)
-brentoil.data <- read.csv('Data-brent.csv', header = F)
-
-
-time.ind.covid <- US.data$Date_reported %in% nasdaq.data$V1
-
-US.new <- US.data[time.ind.covid,]
-
-time.ind.market <- nasdaq.data$V1 %in% US.new$Date_reported
-
-obs.length <- nrow(US.new)
-
-cases.change <- US.new$New_cases[2:obs.length]-US.new$New_cases[1:obs.length-1]
-
-cases.change[cases.change>0] <- 1
-
-cases.change[cases.change<=0] <- 0
-
-proj.data <- data.frame(date = as.Date(US.new$Date_reported)[-1],
-                        index.p = as.numeric(nasdaq.data$V2[time.ind.market])[-1],
-                        cases = US.new$New_cases[-1],
-                        cases.chg = as.factor(cases.change),
-                        VIX = as.numeric(VIX.data$V2[time.ind.market])[-1],
-                        gold = as.numeric(gold.data$V2[time.ind.market])[-1],
-                        brentoil = as.numeric(brentoil.data$V2[time.ind.market])[-1])
-
-proj.data <- na.locf(proj.data, fromLast = T)
-
-
-# Data visualization
-# Detect 
-ggplot(mapping = aes(x = date), data = proj.data) +
-  geom_point(aes(y = scale(cumsum(cases))), col = 'blue') +
-  geom_line(aes(y = scale(index.p)), col = 'steelblue', linetype = 'dashed') +
-  labs(x = 'Date',
-       y = 'Value'
-    ,color = 'Legend') +
-  scale_color_manual(values = colors)
-
-ggplot(aes(x = date), data = proj.data) +
-  geom_point(aes(y = index.p, col = cases.chg))
-
-plotmeans(index.p~cases.chg, data = proj.data)
-anova.fit <- aov(index.p~cases.chg, data = proj.data)
-plot(TukeyHSD(anova.fit, conf.level = 1-0.05), las=1 , col="brown")
-
-plotmeans(index.p~cases.chg, data = proj.data[1:485,])
-anova.fit.cut <- aov(index.p~cases.chg, data = proj.data[1:485,])
-plot(TukeyHSD(anova.fit.cut, conf.level = 1-0.05), las=1 , col="brown")
-
-# Model construction
-# Fit an ANOVA model with cases changes variable
-anova.fit1.p <- aov(index.p~cases.chg, data = proj.data)
-summary(anova.fit1.p)
-
-# Fit an ANOVA model with cases changes variable and other explanatory variables of index prices
-anova.fit3.p <- aov(index.p~cases.chg+VIX+gold+brentoil, data = proj.data)
-summary(anova.fit3.p)
-
-
-
-
-acf(proj.data$index.p)
-pacf(proj.data$index.p)
-AR <- arima(proj.data$index.p, order = c(1,0,0))
-ts.plot(proj.data$index.p)
-AR_fit <- proj.data$index.p - residuals(AR)
-points(AR_fit, type = "l", col = 2, lty = 2)
-
-
-plotmeans(AR_fit~cases.chg, data = proj.data)
-anova.fit.time <- aov(AR_fit~cases.chg, data = proj.data)
-plot(TukeyHSD(anova.fit.time, conf.level = 1-0.05), las=1 , col="brown")
-
-```
 
 
 # Abstract 
@@ -114,6 +29,25 @@ plot(TukeyHSD(anova.fit.time, conf.level = 1-0.05), las=1 , col="brown")
 # Introduction
 
 <span style='color:black'> 
+In this paper, we are interested to study the causal relationship between new daily COVID-19 cases fluctuation and the NASDAQ index prices. We happened to find a potential correlation between these two variables, so we decided to find if there is an causal effect between them. Since we are experiencing tons of uncertainties for the recent years, these uncertainties make our life more unpredictable than ever which may lead to a severe problem to the economics and personal life. The stock market is connected to many people's personal financial status, and also the economics of the world. The BBC news states that ["More than five million people became millionaires across the world in 2020 despite economic damage from the Covid-19 pandemic."](https://www.bbc.com/news/business-57575077), and the Reuters says ["Forbes' annual world's billionaires list this year included a record-breaking 2,755 billionaires with a combined worth of 13.1 trillion dollars, up from 8 dollars trillion last year."](https://www.reuters.com/business/pandemic-boosts-super-rich-share-global-wealth-2021-12-07/), while the World Bank Blogs gives the title ["COVID-19 leaves a legacy of rising poverty and widening inequality"](https://blogs.worldbank.org/developmenttalk/covid-19-leaves-legacy-rising-poverty-and-widening-inequality). These news reports tells us that the wealth of the world has gone through a huge drift during the pandemic. In the meanwhile, the stock market just went trough a bull market except the panic period at the beginning of the pandemic and recent policy risk. This phenomenon seems not a healthy and normal transformation of wealth drift, while it may be exacerbated by the pandemic, but we are not sure about this. To move forward to the answer of such problem, we decided to conduct research on the following question:
+
+- Whether the fluctuation of daily newly reported cases has causal effects on NASDAQ index or not.
+
+- What are the causal effects between them?
+
+In this paper, we focus our attention on the US stock market [NASDAQ](https://www.nasdaq.com/), and. The result may provide some insightful ideas to the policy makers, investors and everyone suffering during the pandemic to get closer view of the impact of the pandemic to the world.
+
+The COVID-19 data set used in this report is from WHO Data Table on their [website](https://covid19.who.int/info?openIndex=2), and the stock market data set is from the institutional customer service of a Chinese financial information company [Wind](https://www.wind.com.cn/en/default.html). We combined the `NASDAQ index prices` and several stock market `control variables` with the `COVID-19 cases` variables as the data set used in the report. The explanation of the variables is as follows.
+
+| Variables | Explanation                                                                                                 |
+|-----------|-------------------------------------------------------------------------------------------------------------|
+| date      | Time stamp, from the beginning of the pandemic Jan 1, 2020 to Feb 7, 2022                                   |
+| index.p   | NASDAQ index prices during the period                                                                       |
+| cases     | Newly report COVID-19 cases during the period                                                               |
+| cases.chg | Regarded as treatment to the outcome. Fluctuation of daily newly reported cases, binary variable by setting 1 when $cases_t-cases_{t-1}>0$, and setting 0 when $cases_t-cases_{t-1}<=0$.      |
+| VIX       | CBOE Volatility index                                                                                       |
+| gold      | COMEX consecutive gold future prices                                                                        |
+| brentoil  | Consedutive brent crude oil future prices                                                                   |
 
 </span>
 
@@ -121,8 +55,7 @@ plot(TukeyHSD(anova.fit.time, conf.level = 1-0.05), las=1 , col="brown")
 # Background 
 
 <span style='color:black'> 
-
-Project STAR was an experiment in which 11,600 students in their first four years of school (from kindergarten to 3rd grade) were randomly assigned to a small class (13-17 students), regular-size class (22-25 students), or regular-size class with a teacher aide within 79 Tennessee public schools (Krueger, A. B., & Whitmore, D. M., 2001). In this paper, we use the data from Harvard dataverse. It contains 11601 observations and 379 variables, including variables such as students ethnicity, students gender, students birthday, etc. Since we are interested in investigating the relation between school indicator, class types, and math scaled scores in 1st grade, we choose STAR.g1tmathss as the outcome variable, and STAR.g1classtype, STAR.g1schid as the indexes of cell mean variables.
+**(To be added)**
 
 </span>
 
@@ -130,29 +63,319 @@ Project STAR was an experiment in which 11,600 students in their first four year
 # Descriptive analysis 
 
 <span style='color:black'> 
+We started from some visualizations to the data to get a preview of their direct and indirect relationship. We found that during different period, some other uncertainties may impact the stock market severely which leads to departure of the trends of the two variables. To deal with such problem, we propose several control variables to reduce this influence to the results of causal inference.
 
-
+We first examined the time-series plot of cumulative COVID-19 cases and NASDAQ index prices by the scale of these two variables and got $Figure 4.1$.
 </span>
+
+```{r, echo=FALSE, message=FALSE}
+library(ggplot2)
+library(zoo)
+library(gplots)
+
+# Data preparation
+# Read and combine different data sets
+# COVID-19 data
+whole.data <- read.csv('WHO-COVID-19-global-data.csv', header = T)
+US.data <- whole.data[whole.data$Country=='United States of America',]
+
+# Stock market data
+nasdaq.data <- read.csv('Data-index.csv', header = F)[,1:2]
+VIX.data <- read.csv('Data-volatility.csv', header = F)
+gold.data <- read.csv('Data-gold.csv', header = F)
+brentoil.data <- read.csv('Data-brent.csv', header = F)
+
+# Data combination and transformation
+time.ind.covid <- US.data$Date_reported %in% nasdaq.data$V1
+US.new <- US.data[time.ind.covid,]
+time.ind.market <- nasdaq.data$V1 %in% US.new$Date_reported
+
+# Transform daily new cases changes into binary variable (named as 'daily new cases fluctuation')
+obs.length <- nrow(US.new)
+cases.change <- US.new$New_cases[2:obs.length]-US.new$New_cases[1:obs.length-1]
+cases.change[cases.change>0] <- 1
+cases.change[cases.change<=0] <- 0
+
+# Aggregate the data into one single data set
+A.data <- data.frame(date = as.Date(US.new$Date_reported)[-1],
+                        index.p = as.numeric(nasdaq.data$V2[time.ind.market])[-1],
+                        cases = US.new$New_cases[-1],
+                        cases.chg = as.factor(cases.change),
+                        VIX = as.numeric(VIX.data$V2[time.ind.market])[-1],
+                        gold = as.numeric(gold.data$V2[time.ind.market])[-1],
+                        brentoil = as.numeric(brentoil.data$V2[time.ind.market])[-1])
+
+# Complement the NA's with most previous values
+A.data <- na.locf(A.data, fromLast = T)
+
+# Detect the potential relation between COVID-19 cases and NASDAQ index prices
+ggplot(mapping = aes(x = date), data = A.data) +
+  geom_point(aes(y = scale(cumsum(cases))), col = 'blue') +
+  geom_line(aes(y = scale(index.p)), col = 'steelblue', linetype = 'dashed') +
+  labs(x = 'Date',
+       y = 'Value'
+    ,color = 'Legend') +
+  scale_color_manual(values = colors)
+```
+
+$$Figure\ 4.1$$
+
+From the above plot, we notice that cumulative cases of COVID-19 and NASDAQ index prices have the same trend of increasing during the time series. Therefore, it attracted our attention to get a deeper insight of their relationship.
+
+We first transform the `cases` to a binary variable `cases.chg` by the following function:
+
+$$
+C_f = 
+\begin{cases}
+  1,& \ C_t-C_{t-1}>0  \\
+  0,& \ C_t-C_{t-1}\le0 
+\end{cases}
+$$
+
+where $C_f$ represents the fluctuation of daily newly reported COVID-19 cases `cases.chg`, $C_t$ represents the number of newly reported COVID-19 cases on day t, $C_{t-1}$ represents the number of newly reported COVID-19 cases on day t-1. By the binary variable, we drew the time-series plot of NASDAQ index colored by `cases.chg` to have a deeper insight of two treatments' (i.e. $C_f=1$ and $C_f=0$) distribution.
+
+```{r, echo=FALSE}
+
+
+# Remove the uncorrelated risk period, when the news of "Fed officials discussed raising rates sooner and faster in 2022" was released.
+
+proj.data <- A.data
+
+# Data visualization
+# Preliminary view of NASDAQ index prices distribution colored by daily new cases fluctuation
+ggplot(aes(x = date), data = proj.data) +
+  geom_point(aes(y = index.p, col = cases.chg))
+```
+
+$$Figure\ 4.2$$
+
+We notice that the `index.p` is slightly smaller when $C_f=1$, which indicates that the daily NASDAQ index will decrease when the daily cases increases. It seems to correspond with our intuitive. We obtained the main effect plot by using $C_f$.
+
+```{r, echo=FALSE}
+
+# Glance of effects from simple model
+plotmeans(index.p~cases.chg, data = proj.data)
+
+```
+
+$$Figure\ 4.3$$
+
+The main effect plot implies the same result as we got above, which leads to a preliminary guess of the answer:
+
+- The increasing fluctuation of daily newly reported cases has negative causal effects on NASDAQ index.
+
+To obtain the convincing answer to the questions we are interested, we constructed several models and conducted tests to them.
+
 
 # Inferential analysis 
 
 
 <span style="color:black">
+Intuitively, we started with a simple model with only $C_f$ as the treatment to construct one-way ANOVA model.
 
+$$P_{NASDAQ}=\mu+\tau_i+\epsilon_i,\ i=1,0,\ \epsilon_i\stackrel{i.i.d}\sim N(0,\sigma^2) \tag{M.1}$$
+
+where, $P_{NASDAQ}$ represents the prices of NASDAQ index `index.p`, $\mu$ represents the mean of whole trials, $\tau_i$ represents the i-th effect, $\epsilon_i$ represents the error term with 0 mean and equal variance.
+
+By the summary table of model (M.1), it indicates that $C_f$ is 90% significant, which indicates it has an association relation with the index and can explain the NASDAQ index well.
+
+```{r, echo=FALSE}
+# Inferential analysis
+alpha <- 0.05
+
+# Simple model
+# Fit an ANOVA model with cases changes variable
+anova.fit1 <- aov(index.p~cases.chg, data = proj.data)
+summary(anova.fit1)
+```
+
+$$Table\ 5.1$$
+
+We obtained the Tukey-Karmer Confidence Intervals plot to test whether $P_{NASDAQ}$ is different among the two treatments of `cases.chg`. 
+
+```{r, echo=FALSE}
+
+# Tukey plot to test the difference between populations
+plot(TukeyHSD(anova.fit1, conf.level = 1-0.05), las=1 , col="brown")
+```
+
+$$Figure\ 5.1$$
+
+The plot tells us that although there is a difference of index prices in these two treatments, but since the interval contains 0, they are not significantly different under 95% confidence level. The Tukey interval is as follows:
+
+```{r, echo=FALSE}
+# Tukey intervals
+idx <- proj.data$cases.chg
+means.comb <- tapply(proj.data$index.p, INDEX=idx,mean)
+T.ci1 <- TukeyHSD(anova.fit1,conf.level = 1-alpha)
+(contrast <- T.ci1$cases.chg['1-0',])
+```
+
+However, it may not represent the causal relationship between them, because there are lots of potential confounding variables that are causally related to the outcome and correlated with the treatments. Since it's nearly impossible to design a randomization experiment to the stock market, we try to use some statistical methods to reduce the influence of confounding variables.
 </span> 
+
+By the conclusion from the paper "Immune or at-risk? Stock markets and the significance of the COVID-19 pandemic", they use COVID-19 together with six additional variables as control variables to explain the index (Niall O, et al., 2021). While they found only Volatility, Brent crude oil, Gold and COVID-19 variables are significant to explain the index in the US (Niall O, et al., 2021). These variables are corresponding with `VIX`, `brentoil`, `gold`, and `cases.chg`, respectively. 
+
+The selection of these variables are also not random. 
+`VIX` represents the expectation of volatility in financial market, and it is suitable as a control variable since it is an ex-post measure of market activity, is considered a proxy for the current sentiment of investors, and has been shown to be significantly linked with market returns (Poshakwale et al., 2019). 
+
+`gold` can be described as a safe assets in the volatile market (Baur and Lucey, 2010), which implies it may be a significant factor to the market during the period of panic.
+
+`brentoil` has a similar role as gold to the market, it is inverse (Sakaki, 2019). In light of the highly volatile global oil markets during March 2020 (Masson and Winter, 2020), the price of oil is a relevant and potentially significant factor in recent stock market prices (Niall O, et al., 2021). It's highly possible that it can explain the market turbulent fluctuation at the beginning of the pandemic and recent.
+
+Since these variables do have causal relation to the index, and they are also correlated with the cases because of the wide-spread panic impact on the whole market, it's very convincing to use them as control variables in the model. Therefore, we constructed a linear model containing all these variables.
+
+$$P_{NASDAQ}=\beta_0+\beta_1C_f+\beta_2C_{VIX}+\beta_3C_{gold}+\beta_4C_{brentoil}+\epsilon_i,\\
+i=1,0,\ \epsilon_i\stackrel{i.i.d}\sim N(0,\sigma^2)$$
+
+This model can be transformed to a one-way ANOVA form as follows:
+
+$$
+\begin{cases}
+P_{NASDAQ}^{new} = \mu+\tau_i+\epsilon_i,i=1,0,\ \epsilon_i\stackrel{i.i.d}\sim N(0,\sigma^2) \\
+P_{NASDAQ}^{new} = P_{NASDAQ}-\beta_0+\beta_1C_f+\beta_2C_{VIX}+\beta_3C_{gold}+\beta_4C_{brentoil} \tag{M.3}
+\end{cases}
+$$
+
+The ANOVA table tells that `cases.chg` is at least 95% significant to explain the NASDAQ index. In the meanwhile, the influences of confounding variables are reduced by plugging in the control variables.
+
+```{r, echo=FALSE}
+# Model with explanatory variables to stock market index prices
+# Fit an ANOVA model with cases changes variable and other explanatory variables of index prices
+anova.fit2.p <- aov(index.p~cases.chg+VIX+gold+brentoil, data = proj.data)
+
+# Construct a new outcome by subtracting the explanatory variables' fitted values
+proj.data$index.p.red <- t(proj.data$index.p-anova.fit2.p$coefficients[3:5]%*%t(proj.data[5:7]))
+
+# Fit a new ANOVA model by the new outcome
+anova.fit2 <- aov(index.p.red~cases.chg, data = proj.data)
+summary(anova.fit2)
+```
+
+$$Table\ 5.2$$
+
+We need to check if the fluctuation of daily cases does have some effect to the market for further investigation. By the main effects plot and Tukey-Karmer Confidence Intervals plot, we can obtain a clearer view of the relation.
+
+```{r, echo=FALSE}
+par(mfrow = c(1,2))
+# Glance of effects from new ANOVA model
+plotmeans(index.p.red~cases.chg, data = proj.data)
+# Tukey plot to test the difference between populations
+plot(TukeyHSD(anova.fit2, conf.level = 1-0.05), las=1 , col="brown")
+par(mfrow = c(1,1))
+```
+
+$$Figure\ 5.2$$
+
+The main effects plot give us a opposite result as we got in Description section, the index prices is higher when $C_f=1$ (i.e. there is an increase of daily cases on day t than day t-1). Tukey_Karmer Confidence Intervals implies that the same result under 95% confidence level. The result indicates that by removing some confounding influences, the increase of daily newly reported cases `cases.chg` has a positive causal effect to the NASDAQ index, which is contrary to our intuition.
+
+Tukey interval is as follows:
+
+```{r, echo=FALSE}
+# Tukey intervals
+idx=proj.data$cases.chg;
+means.comb=tapply(proj.data$index.p.red, INDEX=idx,mean)
+T.ci2=TukeyHSD(anova.fit2,conf.level = 1-alpha)
+(contrast=T.ci2$cases.chg['1-0',])
+```
+
+As most people regard stock market as a time series, we think that the lag feature of a time series may have some influence to our model. Therefore, we propose a transformation to the outcome to deal with the lag problem.
+
+```{r, echo=FALSE}
+par(mfrow=c(1,2))
+acf(proj.data$index.p)
+pacf(proj.data$index.p)
+par(mfrow=c(1,1))
+```
+
+$$Figure\ 5.3$$
+
+The above ACF and PACF plot indicates that the outcome `index.p` does have autocorrelation, and it suggests to use AR(2) model to fit the times series model of `index.p`.
+
+We substituted the out come in model (M.2) by the time-series model fitted values, and constructed model (M.3) as follows:
+
+$$
+\begin{cases}
+P_{NASDAQ}^{time} = \mu+\tau_i+\epsilon_i,i=1,0,\ \epsilon_i\stackrel{i.i.d}\sim N(0,\sigma^2) \\
+P_{NASDAQ_t}^{time} = c + \alpha_1P_{NASDAQ_{t-1}}^{time} + \epsilon_t \\
+P_{NASDAQ}^{new} = P_{NASDAQ}-\beta_0+\beta_1C_f+\beta_2C_{VIX}+\beta_3C_{gold}+\beta_4C_{brentoil} \tag{M.3}
+\end{cases}
+$$
+
+The plot of comparison between time series fitted values and true values is as follows, which has an obvious lag pattern.
+
+```{r, echo=FALSE}
+AR <- arima(proj.data$index.p, order = c(1,0,0))
+ts.plot(proj.data$index.p)
+AR_fit <- proj.data$index.p - residuals(AR)
+points(AR_fit, type = "l", col = 2, lty = 2)
+```
+
+$$Figure\ 5.4$$
+
+The ANOVA table of model (M.3) implies that the fluctuation of daily cases is siginificant to explain the outcomes, which is the same as model (M.2). We then check the effects of the two treatments to the outcome by main effect plot and Tukey-Karmer Confidence Intervals plot.
+
+```{r, echo=FALSE}
+anova.fit.ar <- aov(AR_fit~cases.chg+VIX+gold+brentoil, data = proj.data)
+proj.data$index.p.red.ar <- t(proj.data$index.p-anova.fit.ar$coefficients[3:5]%*%t(proj.data[5:7]))
+anova.fit3 <- aov(index.p.red.ar~cases.chg, data = proj.data)
+summary(anova.fit3)
+```
+
+$$Table\ 5.3$$
+
+By checking the main effects plot and Tukey-Karmer Confidence Intervals plot, we found that the increase of daily cases still has higher average index prices, but the confidence interval of the difference between these two treatments' average index prices moves closer to zero. Although the result stays the same with model (M.2), the moving pattern of confidence interval indicates that our lagged transformation to the outcome have some influence to the results.
+
+```{r, echo=FALSE}
+par(mfrow=c(1,2))
+# Glance of effects from new ANOVA model
+plotmeans(index.p.red.ar~cases.chg, data = proj.data)
+# Tukey plot to test the difference between populations
+plot(TukeyHSD(anova.fit3, conf.level = 1-0.05), las=1 , col="brown")
+par(mfrow=c(1,1))
+```
+
+$$Figure\ 5.5$$
+
+The Tukey interval is as follows:
+
+```{r, echo=FALSE}
+# Tukey intervals
+idx=proj.data$cases.chg;
+(means.comb=tapply(proj.data$index.p.red.ar, INDEX=idx,mean))
+T.ci3=TukeyHSD(anova.fit3,conf.level = 1-alpha)
+(contrast=T.ci3$cases.chg['1-0',])
+```
+
+
 
 # Sensitivity analysis 
 
 <span style='color:black'> 
+We conducted model diagnosis in this section by starting with equal variance detecting. By conducting the Levene Test, we conclude that the assumption of equal variance does not hold.
 
+```{r, echo=FALSE}
+# Model diagnosis
+# Equal variance (not hold)
+proj.data$res_abs <- abs(anova.fit3$residuals)
+summary(aov(res_abs~cases.chg, data = proj.data))
+```
+
+By checking the Q-Q plot and histogram of the residuals, we conclude that the assumption of normal distribution does not hold. The distribution of residuals has an obvious left-skewed pattern, which suggests a transformation to the model.
+
+```{r, echo=FALSE}
+# Normal distributed residuals
+plot(anova.fit3, which = 2)
+hist(anova.fit3$residuals)
+
+```
 </span>
 
 
 # Discussion 
 
-<span style='color:black'> In this paper, we investigate the relation between math scaled scores ,class types and school ID by two-way ANOVA model. We found that both class types and school ID have association with math scaled scores. By conducting several tests, we conclude that there is association between class types and math scaled scores in the 1st grade, and type 1 class (i.e. small size class) has the highest math scaled scores among all types of classes. It suggests that we can set more small size classes for long-term educational outcomes. There is also another suggestion that if we do not have the resource for small size class, regular class with teacher aide is the following selection for a better long-term outcomes.
-
-Since we focus on the study of class types as the index in this paper, we can include more variables and their interaction terms to check if there are some other associations exist. We haven't taken much care to the outliers in this paper, which may lead to big impact to the precision of the model and should be considered.
+<span style='color:black'> 
+As what we have discussed in this paper, we conclude that the increase of daily newly reported cases has a positive causal effect to the NASDAQ index after controlling several potential confounding variables. However, the assumptions do not hold which leads to inaccuracy of our conclusion. We may need some transformation or remedies to the model. In addition, the confounding variables we used in this paper may not represent all the potential influences induced by confounding factors, and we need further study to the correlation between confounding variables and the treatment `cases.chg`.
 </span>
 
 # Acknowledgement {-}
@@ -163,9 +386,7 @@ Since we focus on the study of class types as the index in this paper, we can in
 
 # Reference {-}
 
-Krueger, A. B., & Whitmore, D. M. (2001). The effect of attending a small class in the early grades on college‐test taking and middle school test results: Evidence from Project STAR. The Economic Journal, 111(468), 1-28.
-
-Shizhe Chen. (2022). 4.2.7 Example: Hay Fever data. Chapter 4 ANOVA II, Notes, StatDataScience. 
+**(To be added)**
 
 
 # Session info {-}
