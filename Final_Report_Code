@@ -1,0 +1,140 @@
+knitr::opts_chunk$set(fig.pos = 'H')
+library(ggplot2)
+library(zoo)
+library(gplots)
+library(car)
+library(MASS)
+
+# Data preparation
+# Read and combine different data sets
+# COVID-19 data
+whole.data <- read.csv('WHO-COVID-19-global-data.csv', header = T)
+US.data <- whole.data[whole.data$Country=='United States of America',]
+
+# Stock market data
+nasdaq.data <- read.csv('Data-index.csv', header = F)[,1:2]
+VIX.data <- read.csv('Data-volatility.csv', header = F)
+gold.data <- read.csv('Data-gold.csv', header = F)
+brentoil.data <- read.csv('Data-brent.csv', header = F)
+
+# Data combination and transformation
+time.ind.covid <- US.data$Date_reported %in% nasdaq.data$V1
+US.new <- US.data[time.ind.covid,]
+time.ind.market <- nasdaq.data$V1 %in% US.new$Date_reported
+
+# Transform daily new cases changes into dummy variable (named as 'daily new cases fluctuation')
+obs.length <- nrow(US.new)
+cases.change <- US.new$New_cases[2:obs.length]-US.new$New_cases[1:obs.length-1]
+cases.change[cases.change>0] <- 1
+cases.change[cases.change<=0] <- 0
+
+# Aggregate the data into one single data set
+A.data <- data.frame(date = as.Date(US.new$Date_reported)[-1],
+                        index.p = as.numeric(nasdaq.data$V2[time.ind.market])[-1],
+                        cases = US.new$New_cases[-1],
+                        cases.chg = as.factor(cases.change),
+                        VIX = as.numeric(VIX.data$V2[time.ind.market])[-1],
+                        gold = as.numeric(gold.data$V2[time.ind.market])[-1],
+                        brentoil = as.numeric(brentoil.data$V2[time.ind.market])[-1])
+
+# Complement the NA's with most previous values
+A.data <- na.locf(A.data, fromLast = T)
+
+# Detect the potential relation between COVID-19 cases and NASDAQ index prices
+ggplot(mapping = aes(x = date), data = A.data) +
+  geom_point(aes(y = scale(cumsum(cases))), col = 'blue') +
+  geom_line(aes(y = scale(index.p)), col = 'steelblue', linetype = 'dashed') +
+  labs(x = 'Date',
+       y = 'Value'
+    ,color = 'Legend') +
+  scale_color_manual(values = colors)
+
+
+# Remove the uncorrelated risk period, when the news of "Fed officials discussed raising rates sooner and faster in 2022" was released.
+
+proj.data <- A.data
+
+# Data visualization
+# Preliminary view of NASDAQ index prices distribution colored by daily new cases fluctuation
+ggplot(aes(x = date), data = proj.data) +
+  geom_point(aes(y = index.p, col = cases.chg))
+
+# Glance of effects from simple model
+plotmeans(index.p~cases.chg, data = proj.data)
+
+index.chg <- proj.data$index.p[2:504]-proj.data$index.p[1:503]
+F.val <- proj.data$cases.chg[2:504]
+boxp.data <- data.frame(index.c = index.chg,
+                        dummy.v = F.val)
+ggplot(data = boxp.data) +
+  geom_boxplot(aes(x = dummy.v, y = index.c, col = dummy.v)) +
+  geom_point(aes(x = dummy.v, y = index.c, col = dummy.v))
+# Inferential analysis
+alpha <- 0.05
+
+# Simple model
+# Fit an ANOVA model with cases changes variable
+anova.fit1 <- aov(index.p~cases.chg, data = proj.data)
+summary(anova.fit1)
+
+# Tukey plot to test the difference between populations
+plot(TukeyHSD(anova.fit1, conf.level = 1-0.05), las=1 , col="brown")
+# Tukey intervals
+idx <- proj.data$cases.chg
+means.comb <- tapply(proj.data$index.p, INDEX=idx,mean)
+T.ci1 <- TukeyHSD(anova.fit1,conf.level = 1-alpha)
+(contrast <- T.ci1$cases.chg['1-0',])
+# Model with explanatory variables to stock market index prices
+# Fit an lm model with cases changes variable and other explanatory variables of index prices
+lm.fit1 <- lm(index.p~cases.chg+VIX+gold+brentoil, data = proj.data)
+
+# Construct an ANOVA table
+anova(lm.fit1)
+# Generate a 95% confidence interval for the parameter of dummy variable F
+# We can check if fluctuation fluctuation of daily newly reported cases has what kind of influences to the index prices.
+conf.int <- data.frame(x = lm.fit1$coefficients[2],
+                       lower = confint(lm.fit1, 2, 1-alpha)[1],
+                       upper = confint(lm.fit1, 2, 1-alpha)[2],
+                       y = 'beta_1')
+ggplot(data = conf.int, aes(x,y)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper)) +
+  geom_vline(xintercept = lm.fit1$coefficients[2], linetype = 'dashed', col = 'red')
+# 95% confidence interval
+confint(lm.fit1, 2, 1-alpha)
+durbinWatsonTest(lm.fit1)
+# Autocorrelation plots
+par(mfrow=c(1,2))
+acf(proj.data$index.p)
+pacf(proj.data$index.p)
+par(mfrow=c(1,1))
+AR <- arima(proj.data$index.p, order = c(2,0,0))
+ts.plot(proj.data$index.p)
+AR_fit <- proj.data$index.p - residuals(AR)
+points(AR_fit, type = "l", col = 2, lty = 2)
+lm.fit2 <- lm(AR_fit~cases.chg+VIX+gold+brentoil, data = proj.data)
+anova(lm.fit2)
+# Generate two models' 95% confidence intervals for the parameter of dummy variable F
+# We can check if fluctuation fluctuation of daily newly reported cases has what kind of influences to the index prices.
+conf.int.both <- data.frame(x = c(lm.fit1$coefficients[2], lm.fit2$coefficients[2]),
+                       lower = c(confint(lm.fit1, 2, 1-alpha)[1], confint(lm.fit2, 2, 1-alpha)[1]),
+                       upper = c(confint(lm.fit1, 2, 1-alpha)[2], confint(lm.fit2, 2, 1-alpha)[2]),
+                       y = c('Model (5.3)','Model (5.5)'))
+ggplot(data = conf.int.both, aes(x,y)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower, xmax = upper)) +
+  geom_vline(xintercept = lm.fit1$coefficients[2], linetype = 'dashed', col = 'red') +
+  geom_vline(xintercept = lm.fit2$coefficients[2], linetype = 'dashed', col = 'blue')
+# 95% confidence intervals
+confint(lm.fit2, 2, 1-alpha)
+# Model diagnosis
+# Equal variance (not hold)
+proj.data$res_abs <- abs(lm.fit2$residuals)
+leveneTest(res_abs~cases.chg, data = proj.data)
+# Normal distributed residuals
+par(mfrow=c(1,2))
+plot(lm.fit2, which = 2)
+hist(lm.fit2$residuals)
+par(mfrow=c(1,1))
+boxcox(lm.fit2)
+sessionInfo()
