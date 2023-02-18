@@ -1,5 +1,18 @@
 # COVID-19 effects on NASDAQ
 
+### Description
+
+This is a course project. We investigated the causal effects between COVID-19 daily increases and NASDAQ index prices. Test if COVID-19 daily increases have effects on NASDAQ index prices by ANOVA. We proposed a linear model with specific variables for eliminating confounding effects and added an Auto Regressive time series model to explain the time-series phenomenon of the index. We got the conclusion that COVID-19 daily increases may draw higher stock market index prices.
+
+### Techniques
+
+- ANOVA
+- Linear Model
+- Time Series
+- Effects Study
+
+### R Session Info
+
 The code should be run by R. The Session info is as follows (Remark: Maybe you should install some libraries before running the file.)
 
 R version 4.1.1 (2021-08-10)
