@@ -1,4 +1,4 @@
-# STA-207-Final-Project
+# COVID-19 effects on NASDAQ
 
 The code should be run by R. The Session info is as follows (Remark: Maybe you should install some libraries before running the file.)
 
